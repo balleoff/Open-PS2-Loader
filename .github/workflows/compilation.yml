@@ -119,7 +119,6 @@ jobs:
       fail-fast: false
       matrix:
         debug: [iopcore_debug, ingame_debug, eesio_debug, iopcore_ppctty_debug, ingame_ppctty_debug, DTL_T10000=1]
-        # container_commit: [":main", "@sha256:1f00689809455d43b520e4cd4eea00c6be56d71819ae38efc6b55b56464cbd1e"] Replace with desired docker image hash or tag
         container_commit: [":main"]
     runs-on: ubuntu-latest
     container: ghcr.io/ps2homebrew/ps2homebrew${{ matrix.container_commit }}
@@ -135,7 +134,6 @@ jobs:
       run: |
         echo "OPL_VERSION=$(make oplversion)" >> $GITHUB_ENV
         SHORT_COMMIT="${{ matrix.container_commit }}"
-        # Extract the last 4 characters
         SHORT_COMMIT=${SHORT_COMMIT: -4}
         echo "SHORT_COMMIT=$SHORT_COMMIT" >> $GITHUB_ENV
 
@@ -165,9 +163,6 @@ jobs:
     needs: [build, build-variants, build-lang]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
-    env:
-      USERNAME: ${{ secrets.USERNAME }}
-      PASSWORD: ${{ secrets.PASSWORD }}
     steps:
     - name: git checkout
       uses: actions/checkout@v4
@@ -194,15 +189,13 @@ jobs:
         cp -f OPNPS2LD-LANGS-${{ env.OPL_VERSION }}.7z OPNPS2LD-LANGS.7z
         cp -f OPNPS2LD/OPNPS2LD-${{ env.OPL_VERSION }}.ELF OPNPS2LD.ELF
 
-    - name: Create prerelease
+    - name: Create prerelease (master branch)
       if: github.ref == 'refs/heads/master'
-      uses: mathieucarbou/marvinpinto-action-automatic-releases@latest
+      uses: ncipollo/release-action@v1
       with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        tag: latest
         prerelease: true
-        automatic_release_tag: "latest"
-        title: "${{ steps.version.outputs.version }}"
-        files: |
+        artifacts: |
           OPNPS2LD-${{ env.OPL_VERSION }}.7z
           OPNPS2LD-VARIANTS-${{ env.OPL_VERSION }}.7z
           OPNPS2LD-LANGS-${{ env.OPL_VERSION }}.7z
@@ -210,15 +203,15 @@ jobs:
           OPNPS2LD-VARIANTS.7z
           OPNPS2LD-LANGS.7z
           OPNPS2LD.ELF
+        token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create release
+    - name: Create release (tagged)
       if: startsWith(github.ref, 'refs/tags/v')
-      uses: mathieucarbou/marvinpinto-action-automatic-releases@latest
+      uses: ncipollo/release-action@v1
       with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        tag: ${{ github.ref_name }}
         prerelease: "${{ contains(github.ref, '-rc') }}"
-        title: "${{ env.OPL_VERSION }}"
-        files: |
+        artifacts: |
           OPNPS2LD-${{ env.OPL_VERSION }}.7z
           OPNPS2LD-VARIANTS-${{ env.OPL_VERSION }}.7z
           OPNPS2LD-LANGS-${{ env.OPL_VERSION }}.7z
@@ -226,15 +219,4 @@ jobs:
           OPNPS2LD-VARIANTS.7z
           OPNPS2LD-LANGS.7z
           OPNPS2LD.ELF
-
-    - name: Upload pre-release to Mega
-      if: github.ref == 'refs/heads/master' && env.USERNAME != null
-      uses: Difegue/action-megacmd@master
-      with:
-        args: put -c OPNPS2LD.7z /OPL/Pre-Release/${{ env.OPL_VERSION }}/run_${{ github.run_number }}/
-
-    - name: Upload release to Mega
-      if: startsWith(github.ref, 'refs/tags/v') && env.USERNAME != null
-      uses: Difegue/action-megacmd@master
-      with:
-        args: put -c OPNPS2LD.7z /OPL/Release/${{ env.OPL_VERSION }}/
+        token: ${{ secrets.GITHUB_TOKEN }}
